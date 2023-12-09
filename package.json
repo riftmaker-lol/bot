@@ -3,16 +3,28 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "dev": "bun run src/bot.ts"
+    "dev": "bun run src/main.ts",
+    "watch": "bun run src/main.ts --watch",
+    "deploy": "bun run scripts/deploy.ts",
+    "postinstall": "bunx prisma generate"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "@typescript-eslint/eslint-plugin": "^6.13.2",
+    "@typescript-eslint/parser": "^6.13.2",
+    "bun-types": "latest",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "prettier": "^3.1.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@prisma/client": "5.7.0",
     "discord.js": "^14.14.1",
-    "envalid": "^8.0.0"
+    "envalid": "^8.0.0",
+    "prisma": "^5.7.0",
+    "tslog": "^4.9.2"
   }
 }
