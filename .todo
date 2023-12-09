@@ -1,1 +1,2 @@
 - /setup tounamentId #waiting-lobby #team-1 #team-2 ...etc 
+- After tournament ends, remove the listener from the database

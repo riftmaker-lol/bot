@@ -66,12 +66,15 @@ class SetupCommand extends Command {
         lobbyChannelId: lobby.id,
         teamChannelIds: [team1.id, team2.id],
         guildId: interaction.guildId as string,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
       update: {
         tournamentId: tournament as string,
         lobbyChannelId: lobby.id,
         teamChannelIds: [team1.id, team2.id],
         guildId: interaction.guildId as string,
+        updatedAt: new Date(),
       },
     });
 
