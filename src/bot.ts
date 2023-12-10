@@ -83,14 +83,14 @@ class Bot {
     );
   }
 
-  async getListener(guildId: string) {
+  async getListener(guildId: string, tournamentId: string) {
     const listeners = await this.getListeners(guildId);
-    return listeners.find((listener) => listener.guildId === guildId);
+    return listeners.find((listener) => listener.tournamentId === tournamentId);
   }
 
-  async removeListener(guildId: string) {
+  async removeListener(guildId: string, tournamentId: string) {
     const listeners = await this.getListeners(guildId);
-    const listener = listeners.find((listener) => listener.guildId === guildId);
+    const listener = listeners.find((listener) => listener.tournamentId === tournamentId);
     if (!listener) return;
     await this.redis.lRem(`guilds:${guildId}:listeners`, 1, JSON.stringify(listener));
   }

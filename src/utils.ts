@@ -21,7 +21,10 @@ export const watchVCstate = async (bot: Bot, oldState: VoiceState, newState: Voi
   const guildId = newState.guild.id;
   if (!guildId) return;
 
-  const listener = await bot.getListener(guildId);
+  const listeners = await bot.getListeners(guildId);
+  if (!listeners) return;
+
+  const listener = listeners.find((l) => l.lobbyChannelId === newState.channelId);
   if (!listener) return;
 
   const lobbyChannel = newState.guild.channels.cache.get(listener.lobbyChannelId);
@@ -31,7 +34,6 @@ export const watchVCstate = async (bot: Bot, oldState: VoiceState, newState: Voi
   bot.logger.debug(`Found tournament listener for guild ${guildId}, tournament ${listener.tournamentId}.`);
 
   if (!lobbyChannel || !team1Channel || !team2Channel) return;
-  if (newState.channelId !== lobbyChannel.id) return;
 
   const connectingUser = newState.member;
   if (!connectingUser) return;
