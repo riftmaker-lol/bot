@@ -22,6 +22,20 @@ class ResetCommand extends Command {
       return;
     }
 
+    const listener = await this.bot.prisma.listener.findUnique({
+      where: {
+        guildId_tournamentId: {
+          tournamentId: tournament as string,
+          guildId: interaction.guildId as string,
+        },
+      },
+    });
+
+    if (!listener) {
+      await interaction.reply('Tournament not found.');
+      return;
+    }
+
     await this.bot.prisma.listener.delete({
       where: {
         guildId_tournamentId: {
