@@ -1,2 +1,3 @@
 - /setup tounamentId #waiting-lobby #team-1 #team-2 ...etc 
-- After tournament ends, remove the listener from the database
+- After tournament ends, remove the listener from the database 
+- maintain an in memory list of listeners (on startup, load all from db, and on setup run, add to list)

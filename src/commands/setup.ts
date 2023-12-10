@@ -54,7 +54,7 @@ class SetupCommand extends Command {
       return;
     }
 
-    await this.bot.prisma.listener.upsert({
+    const listener = await this.bot.prisma.listener.upsert({
       where: {
         guildId_tournamentId: {
           tournamentId: tournament as string,
@@ -77,6 +77,9 @@ class SetupCommand extends Command {
         updatedAt: new Date(),
       },
     });
+
+    // Add listener to memory
+    this.bot.addListener(listener);
 
     await interaction.reply('Setup complete.');
   }

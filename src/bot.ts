@@ -1,17 +1,21 @@
 import env from '@/env';
-import { PrismaClient } from '@prisma/client';
-import { Client, Collection, Events, GatewayIntentBits, VoiceBasedChannel } from 'discord.js';
+import { Listener, PrismaClient } from '@prisma/client';
+import { RedisClientType } from '@redis/client';
+import { Client, Collection, Events, GatewayIntentBits } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
+import { createClient } from 'redis';
 import Command from './commands/base';
 import Logger from './logger';
-import { getTournamentData } from './utils';
+import { watchVCstate } from './utils';
 
 class Bot {
   readonly client: Client;
-  commands: Collection<string, Command> = new Collection();
   readonly logger: Logger;
   readonly prisma: PrismaClient;
+  readonly redis: RedisClientType;
+
+  commands: Collection<string, Command> = new Collection();
 
   constructor() {
     this.client = new Client({
@@ -26,6 +30,9 @@ class Bot {
     });
     this.logger = new Logger({ name: 'Bot' });
     this.prisma = new PrismaClient();
+    this.redis = createClient({
+      url: env.REDIS_URL,
+    });
   }
 
   async registerCommands() {
@@ -46,7 +53,6 @@ class Bot {
       if (!interaction.isCommand()) return;
 
       const command = this.commands.get(interaction.commandName);
-
       if (!command) return;
 
       try {
@@ -61,68 +67,42 @@ class Bot {
       this.logger.info(`Ready! Logged in as ${c.user.tag}`);
     });
 
-    this.client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-      if (oldState.channelId === newState.channelId) return;
+    this.client.on(Events.VoiceStateUpdate, (oldState, newState) => watchVCstate(this, oldState, newState));
+  }
 
-      const guildId = newState.guild.id;
-      if (!guildId) return;
+  async addListener(listener: Listener) {
+    this.logger.debug(
+      `Adding listener for guild ${listener.guildId} and tournament ${listener.tournamentId} to redis.`,
+    );
+    await this.redis.lPush(`guilds:${listener.guildId}:listeners`, JSON.stringify(listener));
+  }
 
-      const listener = await this.prisma.listener.findFirst({
-        where: {
-          guildId: guildId,
-        },
-      });
+  async getListeners(guildId: string) {
+    return (await this.redis.lRange(`guilds:${guildId}:listeners`, 0, -1)).map(
+      (listener) => JSON.parse(listener) as Listener,
+    );
+  }
 
-      if (!listener) return;
+  async getListener(guildId: string) {
+    const listeners = await this.getListeners(guildId);
+    return listeners.find((listener) => listener.guildId === guildId);
+  }
 
-      const lobbyChannel = newState.guild.channels.cache.get(listener.lobbyChannelId);
-      const team1Channel = newState.guild.channels.cache.get(listener.teamChannelIds[0]) as VoiceBasedChannel;
-      const team2Channel = newState.guild.channels.cache.get(listener.teamChannelIds[1]) as VoiceBasedChannel;
-
-      this.logger.debug(`Found tournament listener for guild ${guildId}.\n${JSON.stringify(listener, null, 2)}`);
-
-      if (!lobbyChannel || !team1Channel || !team2Channel) return;
-      if (newState.channelId !== lobbyChannel.id) return;
-
-      const connectingUser = newState.member;
-      if (!connectingUser) return;
-
-      const tournament = await getTournamentData(listener.tournamentId);
-      if (!tournament) return;
-
-      const team1 = tournament.teams[0];
-      const team2 = tournament.teams[1];
-
-      if (!team1 || !team2) return;
-
-      const name = connectingUser.user.tag;
-
-      this.logger.debug(`User: ${name} connected to lobby channel.`);
-
-      const team1Members = team1.players.map((player) => player.name);
-      const team2Members = team2.players.map((player) => player.name);
-
-      this.logger.debug(`Team 1: ${team1Members.join(', ')}`);
-      this.logger.debug(`Team 2: ${team2Members.join(', ')}`);
-
-      const team1Member = team1Members.find((member) => member === name);
-      const team2Member = team2Members.find((member) => member === name);
-
-      if (team1Member) {
-        this.logger.debug(`User: ${name} is on team 1.`);
-        await connectingUser.voice.setChannel(team1Channel);
-      } else if (team2Member) {
-        this.logger.debug(`User: ${name} is on team 2.`);
-        await connectingUser.voice.setChannel(team2Channel);
-      } else {
-        this.logger.debug(`User: ${name} is not on either team.`);
-      }
-    });
+  async removeListener(guildId: string) {
+    const listeners = await this.getListeners(guildId);
+    const listener = listeners.find((listener) => listener.guildId === guildId);
+    if (!listener) return;
+    await this.redis.lRem(`guilds:${guildId}:listeners`, 1, JSON.stringify(listener));
   }
 
   async start() {
+    await this.redis
+      .on('connect', () => this.logger.info('Redis connected.'))
+      .on('error', (err) => this.logger.error('Redis error: %s', err.message || 'Unknown error'))
+      .connect();
     await this.registerCommands();
     await this.registerListeners();
+
     await this.client.login(env.DISCORD_TOKEN);
   }
 }
