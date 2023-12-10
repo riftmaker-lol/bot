@@ -13,6 +13,13 @@ ENV DATABASE_URL=${DATABASE_URL}
 ARG REDIS_URL=${REDIS_URL}
 ENV REDIS_URL=${REDIS_URL}
 
+RUN apt-get -y update; apt-get -y install curl
+ARG NODE_VERSION=18
+RUN curl -L https://raw.githubusercontent.com/tj/n/master/bin/n -o n \
+    && bash n $NODE_VERSION \
+    && rm n \
+    && npm install -g n
+	
 COPY bun.lockb package.json prisma ./
 RUN bun install
 
